@@ -1,37 +1,61 @@
+<div align="center">
+
 # Insurance Claims RAG Assistant
 
-A production-structured Retrieval-Augmented Generation application for an
-insurance endorsement pack: a FastAPI backend that answers **only** from the
-documents in `data/`, cites the file and page for every fact, refuses when the
-documents do not cover the question, and an Angular 22 frontend that makes all
-of it usable without knowing what RAG is.
+### Grounded insurance answers with verifiable citations
 
+A production-structured Retrieval-Augmented Generation application built with
+FastAPI, Angular, Qdrant, and Groq.
+
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Angular](https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white)](https://angular.dev/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC244C)](https://qdrant.tech/)
+
+[Getting started](#quick-start) · [Features](#application-areas) · [Architecture](#architecture) · [Configuration](#configuration) · [Testing](#testing)
+
+</div>
+
+The assistant answers only from documents stored in `data/`, cites the source
+file and page for every supported fact, and refuses questions that the indexed
+documents cannot answer. Its Angular interface exposes these safeguards without
+requiring users to understand the underlying RAG pipeline.
+
+## Highlights
+
+- Grounded answers with file-level and page-level citations
+- Six retrieval modes: dense, hybrid, rerank, MMR, rewrite, and HyDE
+- Document ingestion, index management, evaluation, and analytics
+- Similarity-gated refusal before generation
+- Redacted traces with retrieval inspection and replay
+- MCP-powered claims tools isolated from the language model
+
+## Architecture
+
+```mermaid
+flowchart TB
+    UI[Angular 22 Web Application] -->|REST /api/v1| API[FastAPI Backend]
+    API --> RAG[RAG Service]
+    API --> AGENT[Claim Agent]
+    RAG --> RETRIEVAL[Retrieval Service]
+    RAG --> LLM[Groq LLM Service]
+    RETRIEVAL --> QDRANT[(Embedded Qdrant)]
+    RETRIEVAL --> SEARCH[Dense / BM25 + RRF / Rerank / MMR / HyDE]
+    AGENT --> MCP[MCP Tool Client]
+    MCP --> CLAIMS[Claims MCP Servers :8100 / :8101]
+    CLAIMS -->|search_policy| API
 ```
-┌────────────── Angular 22 (frontend/) ───────────────────┐
-│ Chat · Documents · Evaluation · Analytics · Agent · ...  │
-│ Developer: retrieval inspector · traces · replay        │
-└───────────────────────────┬─────────────────────────────┘
-                            │ /api/v1
-┌───────────────────────────▼─────────────────────────────┐
-│ FastAPI (app/)                                          │
-│  chat/search · documents/index · evaluation · traces    │
-│  agent (ClaimAgent) → MCPToolClient ──┐                 │
-│  RAGService → RetrievalService → Qdrant (embedded)   ◄──┼── search_policy proxies here
-│             → LLMService (Groq)   fastembed bge-small   │
-│  hybrid BM25+RRF · cross-encoder rerank · MMR · HyDE    │
-│  redacting trace log · golden-set evaluation            │
-└──────────────────────────────────────┬───────────────────┘
-                                       │ MCP (streamable HTTP, :8100)
-                    ┌──────────────────▼──────────────────┐
-                    │ claims-system MCP server              │
-                    │ (mcp_servers/) - standalone process,  │
-                    │ no LLM ever runs here - get_claim,    │
-                    │ compute_payout, search_policy, ...    │
-                    └────────────────────────────────────────┘
-```
+
+| Layer | Responsibility |
+|---|---|
+| Angular frontend | Chat, documents, evaluation, analytics, settings, and developer tools |
+| FastAPI backend | API endpoints, orchestration, tracing, and validation |
+| Retrieval pipeline | Chunking, embeddings, hybrid search, reranking, MMR, and similarity gating |
+| Qdrant | Local vector storage and semantic search |
+| Groq | Grounded response generation, rewriting, and HyDE |
+| MCP servers | Standalone claims lookup and payout tools |
 
 ---
-
 ## Quick start
 
 **Backend** (Python 3.12+; tested on 3.14)
